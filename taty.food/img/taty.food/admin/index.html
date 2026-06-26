@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <meta name="theme-color" content="#070709" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Admin · Taty Food</title>
+  <style>
+    :root {
+      --bg: #070709;
+      --stroke: rgba(255,255,255,.10);
+      --muted: rgba(255,255,255,.6);
+      --orange: #ff7a00;
+      --green: #22c55e;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background:
+        radial-gradient(ellipse 900px 600px at 15% 8%, rgba(255,122,0,.10), transparent 55%),
+        linear-gradient(180deg, #0a0b10, var(--bg));
+      color: #fff;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 380px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.03);
+      border-radius: 22px;
+      padding: 28px 24px;
+      text-align: center;
+    }
+    .logo { font-size: 38px; margin-bottom: 6px; }
+    h1 { font-size: 18px; margin: 0 0 4px; font-weight: 900; }
+    p.sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 13px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--stroke);
+      background: rgba(0,0,0,.25);
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+    input::placeholder { color: rgba(255,255,255,.4); }
+
+    button {
+      width: 100%;
+      padding: 13px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,122,0,.35);
+      background: rgba(255,122,0,.20);
+      color: #fff;
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    button:hover { background: rgba(255,122,0,.30); }
+    button:active { transform: scale(.98); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    .error { color: #fca5a5; font-size: 13px; margin: 10px 0 0; min-height: 16px; }
+
+    /* Panel logueado */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-weight: 900;
+      font-size: 14px;
+      margin: 6px 0 20px;
+    }
+    .status-pill.open { background: rgba(34,197,94,.14); border: 1px solid rgba(34,197,94,.3); color: #86efac; }
+    .status-pill.closed { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.28); color: #fca5a5; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.open { background: var(--green); }
+    .dot.closed { background: var(--red); }
+
+    .toggle-btn {
+      font-size: 17px;
+      padding: 18px 14px;
+    }
+    .toggle-btn.to-open {
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.18);
+    }
+    .toggle-btn.to-open:hover { background: rgba(34,197,94,.28); }
+    .toggle-btn.to-close {
+      border-color: rgba(239,68,68,.35);
+      background: rgba(239,68,68,.16);
+    }
+    .toggle-btn.to-close:hover { background: rgba(239,68,68,.26); }
+
+    .updated-at { color: var(--muted); font-size: 12px; margin-top: 16px; }
+    .hidden { display: none !important; }
+
+    .logout {
+      margin-top: 18px;
+      background: transparent;
+      border-color: var(--stroke);
+      color: var(--muted);
+      font-size: 13px;
+      padding: 10px;
+    }
+    .logout:hover { background: rgba(255,255,255,.05); color: #fff; }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div class="card" id="loginCard">
+    <div class="logo">🍔</div>
+    <h1>Taty Food · Admin</h1>
+    <p class="sub">Ingresá la contraseña para gestionar el estado del local</p>
+    <input type="password" id="pass" placeholder="Contraseña" autocomplete="current-password" />
+    <button id="btnLogin">Ingresar</button>
+    <p class="error" id="loginError"></p>
+  </div>
+
+  <!-- PANEL -->
+  <div class="card hidden" id="panelCard">
+    <div class="logo">🍔</div>
+    <h1>Estado del local</h1>
+    <p class="sub">Tocá el botón para cambiar la disponibilidad</p>
+
+    <div id="statusPill" class="status-pill closed">
+      <span class="dot closed"></span>
+      <span id="statusText">Cerrado</span>
+    </div>
+
+    <button id="btnToggle" class="toggle-btn"></button>
+    <p class="error" id="panelError"></p>
+    <p class="updated-at" id="updatedAt"></p>
+
+    <button id="btnLogout" class="logout">Cerrar sesión</button>
+  </div>
+
+  <script>
+    const API = "/api/status";
+    const $ = (s) => document.querySelector(s);
+
+    const loginCard = $("#loginCard");
+    const panelCard = $("#panelCard");
+    const passInput = $("#pass");
+    const loginError = $("#loginError");
+    const panelError = $("#panelError");
+    const statusPill = $("#statusPill");
+    const statusText = $("#statusText");
+    const dot = statusPill.querySelector(".dot");
+    const btnToggle = $("#btnToggle");
+    const updatedAtEl = $("#updatedAt");
+
+    let currentOpen = false;
+    let savedPassword = sessionStorage.getItem("taty_admin_pass") || "";
+
+    function renderStatus(open, updatedAt) {
+      currentOpen = open;
+      statusPill.className = "status-pill " + (open ? "open" : "closed");
+      dot.className = "dot " + (open ? "open" : "closed");
+      statusText.textContent = open ? "Abierto" : "Cerrado";
+
+      btnToggle.className = "toggle-btn " + (open ? "to-close" : "to-open");
+      btnToggle.textContent = open ? "Marcar como CERRADO" : "Marcar como ABIERTO";
+
+      if (updatedAt) {
+        const d = new Date(updatedAt);
+        updatedAtEl.textContent = "Última actualización: " + d.toLocaleString("es-AR");
+      }
+    }
+
+    async function fetchStatus() {
+      const res = await fetch(API, { cache: "no-store" });
+      const data = await res.json();
+      renderStatus(data.open, data.updatedAt);
+      return data;
+    }
+
+    async function setStatus(open) {
+      btnToggle.disabled = true;
+      panelError.textContent = "";
+      try {
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ open, password: savedPassword }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          panelError.textContent = data.error || "Error al actualizar.";
+          // Si la contraseña ya no es válida, volvemos al login
+          if (res.status === 401) {
+            sessionStorage.removeItem("taty_admin_pass");
+            showLogin();
+          }
+          return;
+        }
+        renderStatus(data.open, data.updatedAt);
+      } catch (err) {
+        panelError.textContent = "No se pudo conectar con el servidor.";
+      } finally {
+        btnToggle.disabled = false;
+      }
+    }
+
+    function showPanel() {
+      loginCard.classList.add("hidden");
+      panelCard.classList.remove("hidden");
+      fetchStatus().catch(() => {
+        panelError.textContent = "No se pudo cargar el estado actual.";
+      });
+    }
+
+    function showLogin() {
+      panelCard.classList.add("hidden");
+      loginCard.classList.remove("hidden");
+      passInput.value = "";
+      passInput.focus();
+    }
+
+    async function tryLogin() {
+      const pass = passInput.value.trim();
+      if (!pass) return;
+      loginError.textContent = "";
+      $("#btnLogin").disabled = true;
+
+      try {
+        // Probamos la contraseña haciendo un POST con el estado actual (no lo cambia realmente
+        // si coincide con el valor actual, pero valida la contraseña contra el backend).
+        const current = await fetch(API, { cache: "no-store" }).then((r) => r.json());
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ open: current.open, password: pass }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          loginError.textContent = data.error || "Contraseña incorrecta.";
+          return;
+        }
+        savedPassword = pass;
+        sessionStorage.setItem("taty_admin_pass", pass);
+        showPanel();
+      } catch (err) {
+        loginError.textContent = "No se pudo conectar con el servidor.";
+      } finally {
+        $("#btnLogin").disabled = false;
+      }
+    }
+
+    $("#btnLogin").addEventListener("click", tryLogin);
+    passInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryLogin(); });
+
+    btnToggle.addEventListener("click", () => setStatus(!currentOpen));
+
+    $("#btnLogout").addEventListener("click", () => {
+      sessionStorage.removeItem("taty_admin_pass");
+      savedPassword = "";
+      showLogin();
+    });
+
+    // Si ya había una sesión guardada, intentamos entrar directo
+    if (savedPassword) {
+      showPanel();
+    }
+  </script>
+</body>
+</html>
